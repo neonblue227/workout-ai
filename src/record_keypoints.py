@@ -1,11 +1,15 @@
 """
-High-precision video recording with MediaPipe keypoint overlay.
+High-precision video recording with MediaPipe Holistic keypoint overlay.
 
 Features:
 - Full camera resolution capture
-- model_complexity=2 for highest precision pose detection
+- MediaPipe Holistic for comprehensive detection:
+  - 33 pose landmarks
+  - 478 face landmarks (with iris tracking via refine_face_landmarks)
+  - 21 landmarks per hand (42 total for both hands)
+- model_complexity=2 for highest precision
 - Sub-pixel precision keypoint rendering
-- Visibility-based keypoint coloring (green=high, yellow=medium, red=low)
+- Visibility-based keypoint coloring
 - Real-time joint angle display
 - Saves original resolution video to data/record/
 """
@@ -21,19 +25,10 @@ import mediapipe as mp
 # MediaPipe setup
 mp_drawing = mp.solutions.drawing_utils
 mp_drawing_styles = mp.solutions.drawing_styles
+mp_holistic = mp.solutions.holistic
 mp_pose = mp.solutions.pose
-
-# Custom drawing specifications for high-precision overlay
-LANDMARK_DRAWING_SPEC = mp_drawing.DrawingSpec(
-    color=(0, 255, 0), thickness=2, circle_radius=3
-)
-CONNECTION_DRAWING_SPEC = mp_drawing.DrawingSpec(color=(255, 255, 255), thickness=2)
-
-
-def normalized_to_pixel(coord, image_shape):
-    """Convert normalized MediaPipe coords to pixel coordinates."""
-    h, w = image_shape[:2]
-    return coord.x * w, coord.y * h
+mp_hands = mp.solutions.hands
+mp_face_mesh = mp.solutions.face_mesh
 
 
 def angle_between_points(a, b, c):
@@ -68,29 +63,24 @@ def get_visibility_color(visibility):
         return (0, 0, 255)  # Red - low confidence
 
 
-def draw_high_precision_keypoints(frame, landmarks, connections=None):
-    """
-    Draw keypoints with sub-pixel precision and visibility-based coloring.
-    """
+def draw_pose_landmarks(frame, landmarks, connections):
+    """Draw pose landmarks with high precision and visibility-based coloring."""
     h, w = frame.shape[:2]
     keypoint_positions = {}
 
-    # Draw each landmark with visibility-based color
     for idx, landmark in enumerate(landmarks.landmark):
-        # Sub-pixel precision coordinates
         px = landmark.x * w
         py = landmark.y * h
-        visibility = landmark.visibility
+        visibility = getattr(landmark, "visibility", 1.0)
 
         keypoint_positions[idx] = (px, py, visibility)
 
-        # Skip if visibility is too low
         if visibility < 0.1:
             continue
 
         color = get_visibility_color(visibility)
 
-        # Draw filled circle with anti-aliasing (sub-pixel precision)
+        # Draw filled circle with anti-aliasing
         cv2.circle(
             frame,
             (int(round(px)), int(round(py))),
@@ -99,7 +89,6 @@ def draw_high_precision_keypoints(frame, landmarks, connections=None):
             thickness=-1,
             lineType=cv2.LINE_AA,
         )
-        # Draw outer ring
         cv2.circle(
             frame,
             (int(round(px)), int(round(py))),
@@ -117,11 +106,9 @@ def draw_high_precision_keypoints(frame, landmarks, connections=None):
                 start = keypoint_positions[start_idx]
                 end = keypoint_positions[end_idx]
 
-                # Skip if either point has low visibility
                 if start[2] < 0.3 or end[2] < 0.3:
                     continue
 
-                # Draw anti-aliased line
                 cv2.line(
                     frame,
                     (int(round(start[0])), int(round(start[1]))),
@@ -134,46 +121,181 @@ def draw_high_precision_keypoints(frame, landmarks, connections=None):
     return keypoint_positions
 
 
-def calculate_joint_angles(keypoint_positions, h, w):
+def draw_face_mesh(
+    frame, landmarks, draw_tesselation=True, draw_contours=True, draw_irises=True
+):
+    """
+    Draw high-precision face mesh with 478 landmarks.
+    Includes face contours, tesselation, and iris tracking.
+    """
+    h, w = frame.shape[:2]
+    face_points = []
+
+    # Collect all face points
+    for landmark in landmarks.landmark:
+        px = int(round(landmark.x * w))
+        py = int(round(landmark.y * h))
+        face_points.append((px, py))
+
+    # Draw tesselation (face mesh triangles) - subtle gray
+    if draw_tesselation:
+        mp_drawing.draw_landmarks(
+            image=frame,
+            landmark_list=landmarks,
+            connections=mp_face_mesh.FACEMESH_TESSELATION,
+            landmark_drawing_spec=None,
+            connection_drawing_spec=mp_drawing.DrawingSpec(
+                color=(80, 80, 80), thickness=1
+            ),
+        )
+
+    # Draw face contours - more visible
+    if draw_contours:
+        mp_drawing.draw_landmarks(
+            image=frame,
+            landmark_list=landmarks,
+            connections=mp_face_mesh.FACEMESH_CONTOURS,
+            landmark_drawing_spec=None,
+            connection_drawing_spec=mp_drawing_styles.get_default_face_mesh_contours_style(),
+        )
+
+    # Draw irises - cyan color for visibility
+    if draw_irises:
+        mp_drawing.draw_landmarks(
+            image=frame,
+            landmark_list=landmarks,
+            connections=mp_face_mesh.FACEMESH_IRISES,
+            landmark_drawing_spec=None,
+            connection_drawing_spec=mp_drawing.DrawingSpec(
+                color=(255, 255, 0), thickness=2
+            ),
+        )
+
+    # Draw key facial landmarks with dots
+    # Key points: nose tip (1), left eye outer (33), right eye outer (263),
+    # mouth left (61), mouth right (291), chin (199)
+    key_face_indices = [1, 33, 263, 61, 291, 199, 4, 5, 6]
+    for idx in key_face_indices:
+        if idx < len(face_points):
+            px, py = face_points[idx]
+            cv2.circle(
+                frame,
+                (px, py),
+                radius=3,
+                color=(255, 200, 100),
+                thickness=-1,
+                lineType=cv2.LINE_AA,
+            )
+
+    return len(face_points)
+
+
+def draw_hand_landmarks(frame, landmarks, hand_label, connections):
+    """
+    Draw high-precision hand landmarks (21 per hand).
+    Color-coded: Left hand = blue tones, Right hand = green tones
+    """
+    h, w = frame.shape[:2]
+    hand_points = []
+
+    # Color based on hand
+    if hand_label == "Left":
+        base_color = (255, 150, 50)  # Blue-ish for left
+        joint_color = (255, 200, 100)
+    else:
+        base_color = (50, 255, 150)  # Green-ish for right
+        joint_color = (100, 255, 200)
+
+    for idx, landmark in enumerate(landmarks.landmark):
+        px = int(round(landmark.x * w))
+        py = int(round(landmark.y * h))
+        hand_points.append((px, py))
+
+        # Fingertips (indices 4, 8, 12, 16, 20) get larger circles
+        if idx in [4, 8, 12, 16, 20]:
+            cv2.circle(
+                frame,
+                (px, py),
+                radius=6,
+                color=joint_color,
+                thickness=-1,
+                lineType=cv2.LINE_AA,
+            )
+            cv2.circle(
+                frame,
+                (px, py),
+                radius=7,
+                color=(255, 255, 255),
+                thickness=1,
+                lineType=cv2.LINE_AA,
+            )
+        # Knuckles and joints
+        elif idx in [0, 1, 2, 3, 5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 18, 19]:
+            cv2.circle(
+                frame,
+                (px, py),
+                radius=4,
+                color=base_color,
+                thickness=-1,
+                lineType=cv2.LINE_AA,
+            )
+
+    # Draw hand connections
+    if connections:
+        for connection in connections:
+            start_idx, end_idx = connection
+            if start_idx < len(hand_points) and end_idx < len(hand_points):
+                cv2.line(
+                    frame,
+                    hand_points[start_idx],
+                    hand_points[end_idx],
+                    color=base_color,
+                    thickness=2,
+                    lineType=cv2.LINE_AA,
+                )
+
+    return len(hand_points)
+
+
+def calculate_joint_angles(keypoint_positions):
     """Calculate important joint angles for pose analysis."""
     angles = {}
 
-    # Define angle calculations: (point_a, vertex, point_c, name)
     angle_definitions = [
         (
-            mp_pose.PoseLandmark.LEFT_SHOULDER.value,
-            mp_pose.PoseLandmark.LEFT_ELBOW.value,
-            mp_pose.PoseLandmark.LEFT_WRIST.value,
+            mp_holistic.PoseLandmark.LEFT_SHOULDER.value,
+            mp_holistic.PoseLandmark.LEFT_ELBOW.value,
+            mp_holistic.PoseLandmark.LEFT_WRIST.value,
             "L.Elbow",
         ),
         (
-            mp_pose.PoseLandmark.RIGHT_SHOULDER.value,
-            mp_pose.PoseLandmark.RIGHT_ELBOW.value,
-            mp_pose.PoseLandmark.RIGHT_WRIST.value,
+            mp_holistic.PoseLandmark.RIGHT_SHOULDER.value,
+            mp_holistic.PoseLandmark.RIGHT_ELBOW.value,
+            mp_holistic.PoseLandmark.RIGHT_WRIST.value,
             "R.Elbow",
         ),
         (
-            mp_pose.PoseLandmark.LEFT_HIP.value,
-            mp_pose.PoseLandmark.LEFT_KNEE.value,
-            mp_pose.PoseLandmark.LEFT_ANKLE.value,
+            mp_holistic.PoseLandmark.LEFT_HIP.value,
+            mp_holistic.PoseLandmark.LEFT_KNEE.value,
+            mp_holistic.PoseLandmark.LEFT_ANKLE.value,
             "L.Knee",
         ),
         (
-            mp_pose.PoseLandmark.RIGHT_HIP.value,
-            mp_pose.PoseLandmark.RIGHT_KNEE.value,
-            mp_pose.PoseLandmark.RIGHT_ANKLE.value,
+            mp_holistic.PoseLandmark.RIGHT_HIP.value,
+            mp_holistic.PoseLandmark.RIGHT_KNEE.value,
+            mp_holistic.PoseLandmark.RIGHT_ANKLE.value,
             "R.Knee",
         ),
         (
-            mp_pose.PoseLandmark.LEFT_SHOULDER.value,
-            mp_pose.PoseLandmark.LEFT_HIP.value,
-            mp_pose.PoseLandmark.LEFT_KNEE.value,
+            mp_holistic.PoseLandmark.LEFT_SHOULDER.value,
+            mp_holistic.PoseLandmark.LEFT_HIP.value,
+            mp_holistic.PoseLandmark.LEFT_KNEE.value,
             "L.Hip",
         ),
         (
-            mp_pose.PoseLandmark.RIGHT_SHOULDER.value,
-            mp_pose.PoseLandmark.RIGHT_HIP.value,
-            mp_pose.PoseLandmark.RIGHT_KNEE.value,
+            mp_holistic.PoseLandmark.RIGHT_SHOULDER.value,
+            mp_holistic.PoseLandmark.RIGHT_HIP.value,
+            mp_holistic.PoseLandmark.RIGHT_KNEE.value,
             "R.Hip",
         ),
     ]
@@ -188,7 +310,6 @@ def calculate_joint_angles(keypoint_positions, h, w):
             b = keypoint_positions[b_idx][:2]
             c = keypoint_positions[c_idx][:2]
 
-            # Check visibility threshold
             vis_a = keypoint_positions[a_idx][2]
             vis_b = keypoint_positions[b_idx][2]
             vis_c = keypoint_positions[c_idx][2]
@@ -199,6 +320,108 @@ def calculate_joint_angles(keypoint_positions, h, w):
                     angles[name] = angle
 
     return angles
+
+
+def draw_info_overlay(frame, elapsed, duration, fps, detection_status):
+    """Draw recording status and detection info on frame."""
+    h, w = frame.shape[:2]
+
+    # Recording indicator (red dot)
+    cv2.circle(frame, (w - 30, 30), 10, (0, 0, 255), -1, cv2.LINE_AA)
+
+    # Time info
+    time_text = f"{elapsed:.1f}s / {duration:.1f}s"
+    cv2.putText(
+        frame,
+        time_text,
+        (w - 150, 35),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.6,
+        (255, 255, 255),
+        2,
+        cv2.LINE_AA,
+    )
+
+    # FPS
+    cv2.putText(
+        frame,
+        f"FPS: {fps:.1f}",
+        (w - 100, 60),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.5,
+        (255, 255, 255),
+        1,
+        cv2.LINE_AA,
+    )
+
+    # Resolution
+    cv2.putText(
+        frame,
+        f"{w}x{h}",
+        (w - 100, 85),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.5,
+        (200, 200, 200),
+        1,
+        cv2.LINE_AA,
+    )
+
+    # Detection status panel (bottom left)
+    panel_y = h - 100
+    cv2.rectangle(frame, (5, panel_y - 5), (180, h - 5), (0, 0, 0), -1)
+    cv2.rectangle(frame, (5, panel_y - 5), (180, h - 5), (100, 100, 100), 1)
+
+    # Pose status
+    pose_color = (0, 255, 0) if detection_status["pose"] else (100, 100, 100)
+    cv2.putText(
+        frame,
+        f"Pose: {detection_status['pose_points']} pts",
+        (10, panel_y + 15),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.45,
+        pose_color,
+        1,
+        cv2.LINE_AA,
+    )
+
+    # Face status
+    face_color = (0, 255, 0) if detection_status["face"] else (100, 100, 100)
+    cv2.putText(
+        frame,
+        f"Face: {detection_status['face_points']} pts",
+        (10, panel_y + 35),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.45,
+        face_color,
+        1,
+        cv2.LINE_AA,
+    )
+
+    # Left hand status
+    lh_color = (255, 150, 50) if detection_status["left_hand"] else (100, 100, 100)
+    cv2.putText(
+        frame,
+        f"L.Hand: {detection_status['left_hand_points']} pts",
+        (10, panel_y + 55),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.45,
+        lh_color,
+        1,
+        cv2.LINE_AA,
+    )
+
+    # Right hand status
+    rh_color = (50, 255, 150) if detection_status["right_hand"] else (100, 100, 100)
+    cv2.putText(
+        frame,
+        f"R.Hand: {detection_status['right_hand_points']} pts",
+        (10, panel_y + 75),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.45,
+        rh_color,
+        1,
+        cv2.LINE_AA,
+    )
 
 
 def draw_angle_overlay(frame, angles):
@@ -229,53 +452,6 @@ def draw_angle_overlay(frame, angles):
         y_offset += 25
 
 
-def draw_recording_info(frame, elapsed, duration, fps):
-    """Draw recording status info on frame."""
-    h, w = frame.shape[:2]
-
-    # Recording indicator (red dot)
-    cv2.circle(frame, (w - 30, 30), 10, (0, 0, 255), -1, cv2.LINE_AA)
-
-    # Time info
-    time_text = f"{elapsed:.1f}s / {duration:.1f}s"
-    cv2.putText(
-        frame,
-        time_text,
-        (w - 150, 35),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.6,
-        (255, 255, 255),
-        2,
-        cv2.LINE_AA,
-    )
-
-    # FPS
-    fps_text = f"FPS: {fps:.1f}"
-    cv2.putText(
-        frame,
-        fps_text,
-        (w - 100, 60),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.5,
-        (255, 255, 255),
-        1,
-        cv2.LINE_AA,
-    )
-
-    # Resolution
-    res_text = f"{w}x{h}"
-    cv2.putText(
-        frame,
-        res_text,
-        (w - 100, 85),
-        cv2.FONT_HERSHEY_SIMPLEX,
-        0.5,
-        (200, 200, 200),
-        1,
-        cv2.LINE_AA,
-    )
-
-
 def get_next_filename(folder, base_name, extension=".mp4"):
     """Generate next filename in sequence."""
     if not os.path.exists(folder):
@@ -298,20 +474,20 @@ def get_next_filename(folder, base_name, extension=".mp4"):
 
 
 def record_with_keypoints():
-    """Main recording function with high-precision keypoint overlay."""
-    # Output folder
+    """Main recording function with high-precision Holistic keypoint overlay."""
     RECORD_FOLDER = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "data", "record")
     )
 
-    print("=" * 50)
-    print("  High-Precision Keypoint Video Recorder")
-    print("=" * 50)
+    print("=" * 60)
+    print("  High-Precision Holistic Keypoint Video Recorder")
+    print("  Pose (33) + Face (478) + Hands (21 each) = 553 keypoints")
+    print("=" * 60)
 
     # Get filename prefix
-    base_name = input("\nFilename prefix (default: 'keypoint_record'): ").strip()
+    base_name = input("\nFilename prefix (default: 'holistic_record'): ").strip()
     if not base_name:
-        base_name = "keypoint_record"
+        base_name = "holistic_record"
 
     # Get duration
     try:
@@ -333,7 +509,6 @@ def record_with_keypoints():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
-    # Get actual resolution
     actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     actual_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
@@ -350,18 +525,23 @@ def record_with_keypoints():
 
     print(f"\nOutput: {output_path}")
     print(f"Duration: {duration}s")
+    print("\nDetection includes:")
+    print("  - Pose: 33 body landmarks")
+    print("  - Face: 478 landmarks (with iris tracking)")
+    print("  - Hands: 21 landmarks per hand")
     print("\nStarting recording... Press 'q' to stop early.")
-    print("-" * 50)
+    print("-" * 60)
 
-    # Initialize MediaPipe Pose with highest precision
-    with mp_pose.Pose(
+    # Initialize MediaPipe Holistic with highest precision
+    with mp_holistic.Holistic(
         static_image_mode=False,
-        model_complexity=2,  # Highest precision (0, 1, or 2)
+        model_complexity=2,  # Highest precision
         smooth_landmarks=True,
         enable_segmentation=False,
+        refine_face_landmarks=True,  # Enable 478 face landmarks with iris
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5,
-    ) as pose:
+    ) as holistic:
         start_time = time.time()
         frame_count = 0
         fps_calc = 0
@@ -378,36 +558,86 @@ def record_with_keypoints():
 
             frame_start = time.time()
 
-            # Process with MediaPipe
+            # Process with MediaPipe Holistic
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             rgb_frame.flags.writeable = False
-            results = pose.process(rgb_frame)
+            results = holistic.process(rgb_frame)
             rgb_frame.flags.writeable = True
 
             # Create overlay frame
             overlay_frame = frame.copy()
 
+            # Detection status tracking
+            detection_status = {
+                "pose": False,
+                "pose_points": 0,
+                "face": False,
+                "face_points": 0,
+                "left_hand": False,
+                "left_hand_points": 0,
+                "right_hand": False,
+                "right_hand_points": 0,
+            }
+
+            keypoint_positions = {}
+
+            # Draw pose landmarks
             if results.pose_landmarks:
-                # Draw high-precision keypoints
-                keypoint_positions = draw_high_precision_keypoints(
+                detection_status["pose"] = True
+                detection_status["pose_points"] = 33
+                keypoint_positions = draw_pose_landmarks(
                     overlay_frame,
                     results.pose_landmarks,
-                    mp_pose.POSE_CONNECTIONS,
+                    mp_holistic.POSE_CONNECTIONS,
                 )
 
                 # Calculate and draw angles
-                angles = calculate_joint_angles(
-                    keypoint_positions, actual_height, actual_width
-                )
+                angles = calculate_joint_angles(keypoint_positions)
                 draw_angle_overlay(overlay_frame, angles)
 
-            # Draw recording info
-            draw_recording_info(overlay_frame, elapsed, duration, fps_calc)
+            # Draw face mesh
+            if results.face_landmarks:
+                detection_status["face"] = True
+                face_count = draw_face_mesh(
+                    overlay_frame,
+                    results.face_landmarks,
+                    draw_tesselation=True,
+                    draw_contours=True,
+                    draw_irises=True,
+                )
+                detection_status["face_points"] = face_count
+
+            # Draw left hand
+            if results.left_hand_landmarks:
+                detection_status["left_hand"] = True
+                hand_count = draw_hand_landmarks(
+                    overlay_frame,
+                    results.left_hand_landmarks,
+                    "Left",
+                    mp_hands.HAND_CONNECTIONS,
+                )
+                detection_status["left_hand_points"] = hand_count
+
+            # Draw right hand
+            if results.right_hand_landmarks:
+                detection_status["right_hand"] = True
+                hand_count = draw_hand_landmarks(
+                    overlay_frame,
+                    results.right_hand_landmarks,
+                    "Right",
+                    mp_hands.HAND_CONNECTIONS,
+                )
+                detection_status["right_hand_points"] = hand_count
+
+            # Draw info overlay
+            draw_info_overlay(
+                overlay_frame, elapsed, duration, fps_calc, detection_status
+            )
 
             # Write frame to video
             out.write(overlay_frame)
 
-            # Display preview (scaled down if needed for performance)
+            # Display preview (scaled down if needed)
             display_frame = overlay_frame
             if actual_width > 1280:
                 scale = 1280 / actual_width
@@ -419,7 +649,7 @@ def record_with_keypoints():
                     interpolation=cv2.INTER_AREA,
                 )
 
-            cv2.imshow("Recording (press 'q' to stop)", display_frame)
+            cv2.imshow("Holistic Recording (press 'q' to stop)", display_frame)
 
             # Calculate FPS
             frame_time = time.time() - frame_start
@@ -429,8 +659,17 @@ def record_with_keypoints():
             percent = min(100, int((elapsed / duration) * 100))
             bar_len = 40
             filled = int(bar_len * percent // 100)
-            bar = "█" * filled + "░" * (bar_len - filled)
-            sys.stdout.write(f"\r[{bar}] {percent}% | {elapsed:.1f}s")
+            bar = "=" * filled + "-" * (bar_len - filled)
+
+            total_pts = (
+                detection_status["pose_points"]
+                + detection_status["face_points"]
+                + detection_status["left_hand_points"]
+                + detection_status["right_hand_points"]
+            )
+            sys.stdout.write(
+                f"\r[{bar}] {percent}% | {elapsed:.1f}s | {total_pts} keypoints"
+            )
             sys.stdout.flush()
 
             frame_count += 1
@@ -445,9 +684,9 @@ def record_with_keypoints():
     out.release()
     cv2.destroyAllWindows()
 
-    print("=" * 50)
+    print("=" * 60)
     print("  Recording Complete!")
-    print("=" * 50)
+    print("=" * 60)
     print(f"Frames recorded: {frame_count}")
     print(f"File saved: {output_path}")
     print(f"Resolution: {actual_width}x{actual_height}")
