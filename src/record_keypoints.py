@@ -21,7 +21,11 @@ import time
 import cv2
 import mediapipe as mp
 
-# Import utility functions from utils module
+# Add project root to sys.path to allow importing from utils
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_root not in sys.path:
+    sys.path.append(project_root)
+
 from utils import (
     calculate_joint_angles,
     calibrate_fps,
