@@ -3,7 +3,9 @@
         "[\u0E00-\u0E7F]+"
     ],
     "cSpell.words": [
+        "blit",
         "cosang",
+        "figsize",
         "fourcc",
         "imshow",
         "ipynb",
@@ -11,6 +13,8 @@
         "Keypoints",
         "tranfrom",
         "venv",
-        "XVID"
+        "xlim",
+        "XVID",
+        "ylim"
     ]
 }
