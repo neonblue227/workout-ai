@@ -6,7 +6,11 @@
         "cosang",
         "fourcc",
         "imshow",
+        "ipynb",
+        "Keypoint",
         "Keypoints",
+        "tranfrom",
+        "venv",
         "XVID"
     ]
 }
