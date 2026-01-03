@@ -17,7 +17,6 @@ from math import acos, degrees
 
 import cv2
 import mediapipe as mp
-import numpy as np
 
 # MediaPipe setup
 mp_drawing = mp.solutions.drawing_utils
@@ -28,9 +27,7 @@ mp_pose = mp.solutions.pose
 LANDMARK_DRAWING_SPEC = mp_drawing.DrawingSpec(
     color=(0, 255, 0), thickness=2, circle_radius=3
 )
-CONNECTION_DRAWING_SPEC = mp_drawing.DrawingSpec(
-    color=(255, 255, 255), thickness=2
-)
+CONNECTION_DRAWING_SPEC = mp_drawing.DrawingSpec(color=(255, 255, 255), thickness=2)
 
 
 def normalized_to_pixel(coord, image_shape):
@@ -143,36 +140,50 @@ def calculate_joint_angles(keypoint_positions, h, w):
 
     # Define angle calculations: (point_a, vertex, point_c, name)
     angle_definitions = [
-        (mp_pose.PoseLandmark.LEFT_SHOULDER.value,
-         mp_pose.PoseLandmark.LEFT_ELBOW.value,
-         mp_pose.PoseLandmark.LEFT_WRIST.value,
-         "L.Elbow"),
-        (mp_pose.PoseLandmark.RIGHT_SHOULDER.value,
-         mp_pose.PoseLandmark.RIGHT_ELBOW.value,
-         mp_pose.PoseLandmark.RIGHT_WRIST.value,
-         "R.Elbow"),
-        (mp_pose.PoseLandmark.LEFT_HIP.value,
-         mp_pose.PoseLandmark.LEFT_KNEE.value,
-         mp_pose.PoseLandmark.LEFT_ANKLE.value,
-         "L.Knee"),
-        (mp_pose.PoseLandmark.RIGHT_HIP.value,
-         mp_pose.PoseLandmark.RIGHT_KNEE.value,
-         mp_pose.PoseLandmark.RIGHT_ANKLE.value,
-         "R.Knee"),
-        (mp_pose.PoseLandmark.LEFT_SHOULDER.value,
-         mp_pose.PoseLandmark.LEFT_HIP.value,
-         mp_pose.PoseLandmark.LEFT_KNEE.value,
-         "L.Hip"),
-        (mp_pose.PoseLandmark.RIGHT_SHOULDER.value,
-         mp_pose.PoseLandmark.RIGHT_HIP.value,
-         mp_pose.PoseLandmark.RIGHT_KNEE.value,
-         "R.Hip"),
+        (
+            mp_pose.PoseLandmark.LEFT_SHOULDER.value,
+            mp_pose.PoseLandmark.LEFT_ELBOW.value,
+            mp_pose.PoseLandmark.LEFT_WRIST.value,
+            "L.Elbow",
+        ),
+        (
+            mp_pose.PoseLandmark.RIGHT_SHOULDER.value,
+            mp_pose.PoseLandmark.RIGHT_ELBOW.value,
+            mp_pose.PoseLandmark.RIGHT_WRIST.value,
+            "R.Elbow",
+        ),
+        (
+            mp_pose.PoseLandmark.LEFT_HIP.value,
+            mp_pose.PoseLandmark.LEFT_KNEE.value,
+            mp_pose.PoseLandmark.LEFT_ANKLE.value,
+            "L.Knee",
+        ),
+        (
+            mp_pose.PoseLandmark.RIGHT_HIP.value,
+            mp_pose.PoseLandmark.RIGHT_KNEE.value,
+            mp_pose.PoseLandmark.RIGHT_ANKLE.value,
+            "R.Knee",
+        ),
+        (
+            mp_pose.PoseLandmark.LEFT_SHOULDER.value,
+            mp_pose.PoseLandmark.LEFT_HIP.value,
+            mp_pose.PoseLandmark.LEFT_KNEE.value,
+            "L.Hip",
+        ),
+        (
+            mp_pose.PoseLandmark.RIGHT_SHOULDER.value,
+            mp_pose.PoseLandmark.RIGHT_HIP.value,
+            mp_pose.PoseLandmark.RIGHT_KNEE.value,
+            "R.Hip",
+        ),
     ]
 
     for a_idx, b_idx, c_idx, name in angle_definitions:
-        if (a_idx in keypoint_positions and
-            b_idx in keypoint_positions and
-                c_idx in keypoint_positions):
+        if (
+            a_idx in keypoint_positions
+            and b_idx in keypoint_positions
+            and c_idx in keypoint_positions
+        ):
             a = keypoint_positions[a_idx][:2]
             b = keypoint_positions[b_idx][:2]
             c = keypoint_positions[c_idx][:2]
@@ -304,7 +315,9 @@ def record_with_keypoints():
 
     # Get duration
     try:
-        duration = float(input("Recording duration in seconds (default: 30): ").strip() or "30")
+        duration = float(
+            input("Recording duration in seconds (default: 30): ").strip() or "30"
+        )
     except ValueError:
         duration = 30.0
 
