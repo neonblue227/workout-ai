@@ -473,6 +473,42 @@ def get_next_filename(folder, base_name, extension=".mp4"):
     return os.path.join(folder, f"{base_name}_{max_num + 1}{extension}")
 
 
+def calibrate_fps(cap, holistic, num_frames=30):
+    """
+    Run a calibration phase to measure actual processing FPS.
+    Returns the measured FPS based on real processing time.
+    """
+    print("\nCalibrating FPS (processing test frames)...")
+    frame_times = []
+
+    for i in range(num_frames):
+        frame_start = time.time()
+
+        ret, frame = cap.read()
+        if not ret:
+            continue
+
+        # Process with MediaPipe (same as recording)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        rgb_frame.flags.writeable = False
+        holistic.process(rgb_frame)
+
+        frame_time = time.time() - frame_start
+        frame_times.append(frame_time)
+
+        # Show progress
+        sys.stdout.write(f"\r  Calibrating: {i + 1}/{num_frames} frames")
+        sys.stdout.flush()
+
+    print()
+
+    if frame_times:
+        avg_frame_time = sum(frame_times) / len(frame_times)
+        measured_fps = 1.0 / avg_frame_time if avg_frame_time > 0 else 15.0
+        return measured_fps
+    return 15.0  # Default fallback
+
+
 def record_with_keypoints():
     """Main recording function with high-precision Holistic keypoint overlay."""
     RECORD_FOLDER = os.path.abspath(
@@ -511,29 +547,13 @@ def record_with_keypoints():
 
     actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    actual_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    camera_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
 
     print(f"Camera resolution: {actual_width}x{actual_height}")
-    print(f"Camera FPS: {actual_fps}")
-
-    # Setup video writer
-    output_path = get_next_filename(RECORD_FOLDER, base_name, ".mp4")
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(
-        output_path, fourcc, actual_fps, (actual_width, actual_height)
-    )
-
-    print(f"\nOutput: {output_path}")
-    print(f"Duration: {duration}s")
-    print("\nDetection includes:")
-    print("  - Pose: 33 body landmarks")
-    print("  - Face: 478 landmarks (with iris tracking)")
-    print("  - Hands: 21 landmarks per hand")
-    print("\nStarting recording... Press 'q' to stop early.")
-    print("-" * 60)
+    print(f"Camera reported FPS: {camera_fps}")
 
     # Initialize MediaPipe Holistic with highest precision
-    with mp_holistic.Holistic(
+    holistic = mp_holistic.Holistic(
         static_image_mode=False,
         model_complexity=2,  # Highest precision
         smooth_landmarks=True,
@@ -541,10 +561,34 @@ def record_with_keypoints():
         refine_face_landmarks=True,  # Enable 478 face landmarks with iris
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5,
-    ) as holistic:
+    )
+
+    # Calibrate to get actual processing FPS
+    measured_fps = calibrate_fps(cap, holistic, num_frames=30)
+    print(f"Measured processing FPS: {measured_fps:.1f}")
+
+    # Setup video writer with MEASURED FPS (not camera reported FPS)
+    output_path = get_next_filename(RECORD_FOLDER, base_name, ".mp4")
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(
+        output_path, fourcc, measured_fps, (actual_width, actual_height)
+    )
+
+    print(f"\nOutput: {output_path}")
+    print(f"Duration: {duration}s")
+    print(f"Recording FPS: {measured_fps:.1f} (actual processing speed)")
+    print("\nDetection includes:")
+    print("  - Pose: 33 body landmarks")
+    print("  - Face: 478 landmarks (with iris tracking)")
+    print("  - Hands: 21 landmarks per hand")
+    print("\nStarting recording... Press 'q' to stop early.")
+    print("-" * 60)
+
+    # Main recording loop
+    with holistic:
         start_time = time.time()
         frame_count = 0
-        fps_calc = 0
+        fps_calc = measured_fps  # Start with calibrated value
 
         while True:
             elapsed = time.time() - start_time
