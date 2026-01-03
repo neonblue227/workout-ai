@@ -30,6 +30,7 @@ if project_root not in sys.path:
 
 # Local
 from utils import (  # noqa: E402
+    KeypointRecorder,
     calculate_joint_angles,
     calibrate_fps,
     draw_angle_overlay,
@@ -49,6 +50,9 @@ def record_with_keypoints():
     """Main recording function with high-precision Holistic keypoint overlay."""
     RECORD_FOLDER = os.path.abspath(
         os.path.join(os.path.dirname(__file__), "..", "data", "video")
+    )
+    KEYPOINT_FOLDER = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "data", "keypoint")
     )
 
     print("=" * 60)
@@ -110,7 +114,18 @@ def record_with_keypoints():
         output_path, fourcc, measured_fps, (actual_width, actual_height)
     )
 
-    print(f"\nOutput: {output_path}")
+    # Extract filename without extension for keypoint recorder
+    video_filename = os.path.splitext(os.path.basename(output_path))[0]
+
+    # Initialize keypoint recorder
+    keypoint_recorder = KeypointRecorder(
+        base_filename=video_filename,
+        resolution=(actual_width, actual_height),
+        fps=measured_fps,
+    )
+
+    print(f"\nVideo output: {output_path}")
+    print(f"Keypoint output: {KEYPOINT_FOLDER}/{video_filename}.json")
     print(f"Duration: {duration}s")
     print(f"Recording FPS: {measured_fps:.1f} (actual processing speed)")
     print("\nDetection includes:")
