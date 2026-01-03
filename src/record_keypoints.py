@@ -14,19 +14,22 @@ Features:
 - Saves original resolution video to data/record/
 """
 
+# Standard Library
 import os
 import sys
 import time
 
+# Third-Party
 import cv2
 import mediapipe as mp
 
-# Add project root to sys.path to allow importing from utils
+# Path hack for local imports
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from utils import (
+# Local
+from utils import (  # noqa: E402
     calculate_joint_angles,
     calibrate_fps,
     draw_angle_overlay,
