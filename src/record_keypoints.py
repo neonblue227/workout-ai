@@ -38,6 +38,7 @@ from utils import (  # noqa: E402
     draw_hand_landmarks,
     draw_info_overlay,
     draw_pose_landmarks,
+    extract_all_keypoints,
     get_next_filename,
 )
 
@@ -159,6 +160,10 @@ def record_with_keypoints():
             results = holistic.process(rgb_frame)
             rgb_frame.flags.writeable = True
 
+            # Extract and record raw keypoints
+            frame_keypoints = extract_all_keypoints(results, frame.shape)
+            keypoint_recorder.add_frame(frame_count, elapsed, frame_keypoints)
+
             # Create overlay frame
             overlay_frame = frame.copy()
 
@@ -279,12 +284,26 @@ def record_with_keypoints():
     out.release()
     cv2.destroyAllWindows()
 
+    # Save keypoints to JSON
+    keypoint_path = keypoint_recorder.save(KEYPOINT_FOLDER)
+    detection_summary = keypoint_recorder.get_detection_summary()
+
     print("=" * 60)
     print("  Recording Complete!")
     print("=" * 60)
     print(f"Frames recorded: {frame_count}")
-    print(f"File saved: {output_path}")
+    print(f"Video saved: {output_path}")
+    print(f"Keypoints saved: {keypoint_path}")
     print(f"Resolution: {actual_width}x{actual_height}")
+    print("\nDetection Summary:")
+    print(f"  Pose detected: {detection_summary['pose_detected']}/{frame_count} frames")
+    print(f"  Face detected: {detection_summary['face_detected']}/{frame_count} frames")
+    print(
+        f"  Left hand detected: {detection_summary['left_hand_detected']}/{frame_count} frames"
+    )
+    print(
+        f"  Right hand detected: {detection_summary['right_hand_detected']}/{frame_count} frames"
+    )
 
 
 if __name__ == "__main__":
