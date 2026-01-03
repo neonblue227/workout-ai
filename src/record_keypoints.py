@@ -11,7 +11,7 @@ Features:
 - Sub-pixel precision keypoint rendering
 - Visibility-based keypoint coloring
 - Real-time joint angle display
-- Saves original resolution video to data/record/
+- Saves original resolution video to data/video/
 """
 
 import os
@@ -512,7 +512,7 @@ def calibrate_fps(cap, holistic, num_frames=30):
 def record_with_keypoints():
     """Main recording function with high-precision Holistic keypoint overlay."""
     RECORD_FOLDER = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "data", "record")
+        os.path.join(os.path.dirname(__file__), "..", "data", "video")
     )
 
     print("=" * 60)
