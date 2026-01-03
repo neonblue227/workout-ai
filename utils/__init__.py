@@ -13,6 +13,7 @@ from .draw_info import draw_info_overlay
 from .draw_pose import draw_pose_landmarks
 from .file_utils import get_next_filename
 from .fps_calibration import calibrate_fps
+from .gif_generator import generate_gif
 from .joint_angles import calculate_joint_angles
 from .keypoint_extractor import (
     extract_all_keypoints,
@@ -39,4 +40,5 @@ __all__ = [
     "extract_face_keypoints",
     "extract_hand_keypoints",
     "KeypointRecorder",
+    "generate_gif",
 ]
