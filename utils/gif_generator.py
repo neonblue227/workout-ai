@@ -526,4 +526,5 @@ def generate_gif(
     )
 
     print(f"GIF saved: {output_path}")
+
     return output_path

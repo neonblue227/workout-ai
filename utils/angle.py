@@ -31,4 +31,5 @@ def angle_between_points(a, b, c):
     if norm1 == 0 or norm2 == 0:
         return None
     cosang = max(-1.0, min(1.0, dot / (norm1 * norm2)))
+
     return degrees(acos(cosang))
