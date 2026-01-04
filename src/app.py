@@ -236,6 +236,7 @@ class CameraThread(threading.Thread):
         self.fps = 0
         self.cap = None
         self.holistic = None
+        self._reset_frame_count = False
 
     def run(self):
         """Main camera loop."""
@@ -290,6 +291,11 @@ class CameraThread(threading.Thread):
 
             # If recording, process and store data
             if self.recording and self.record_data is not None:
+                # Reset frame count for new recording session
+                if self._reset_frame_count:
+                    frame_count = 0
+                    self._reset_frame_count = False
+
                 elapsed = time.time() - self.record_data["start_time"]
 
                 if UTILS_AVAILABLE and results is not None:
@@ -388,6 +394,7 @@ class CameraThread(threading.Thread):
             "elapsed": 0,
         }
         self.recording = True
+        self._reset_frame_count = True  # Signal to reset frame count in run loop
         self.log_queue.put(f"Recording started: {video_filename}")
         return True
 
