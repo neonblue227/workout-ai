@@ -1098,16 +1098,12 @@ class MoveUpApp:
 
     def run_gif_cli(self):
         """Open the generate_gif.py CLI in a new terminal window."""
-        script_path = os.path.join(os.path.dirname(__file__), "generate_gif.py")
-
-        if not os.path.exists(script_path):
-            messagebox.showerror("Error", f"Script not found: {script_path}")
-            return
-
         try:
-            # On Windows, open a new cmd window and run the script
+            # On Windows, open a new cmd window, activate venv, and run the script
+            # Using relative paths from project_root
+            command = 'start cmd /k ".venv\\Scripts\\activate.bat && .venv\\Scripts\\python.exe src\\generate_gif.py"'
             subprocess.Popen(
-                f'start cmd /k "{sys.executable}" "{script_path}"',
+                command,
                 shell=True,
                 cwd=project_root,
             )
