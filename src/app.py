@@ -49,17 +49,11 @@ except ImportError:
 try:
     from utils import (
         KeypointRecorder,
-        calculate_joint_angles,
-        draw_angle_overlay,
         draw_face_mesh,
         draw_hand_landmarks,
-        draw_info_overlay,
         draw_pose_landmarks,
         extract_all_keypoints,
-        generate_gif,
-        get_next_filename,
     )
-    from utils.fps_calibration import calibrate_fps
 
     UTILS_AVAILABLE = True
 except ImportError:
