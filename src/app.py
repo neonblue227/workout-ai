@@ -846,6 +846,20 @@ class MoveUpApp:
             command=self.generate_gif,
         ).pack(side="right")
 
+        Button(
+            gif_header,
+            text="Run GIF CLI",
+            font=Theme.FONT_SMALL,
+            bg=Theme.BG_PANEL,
+            fg=Theme.TEXT_PRIMARY,
+            activebackground=Theme.BORDER,
+            relief="raised",
+            padx=15,
+            pady=3,
+            cursor="hand2",
+            command=self.run_gif_cli,
+        ).pack(side="right", padx=(0, 10))
+
         self.gif_label = Label(
             gif_frame,
             bg=Theme.BG_CONTROL,
@@ -1081,6 +1095,25 @@ class MoveUpApp:
                 self.status_var.set("Ready")
 
         threading.Thread(target=generate_thread, daemon=True).start()
+
+    def run_gif_cli(self):
+        """Open the generate_gif.py CLI in a new terminal window."""
+        script_path = os.path.join(os.path.dirname(__file__), "generate_gif.py")
+
+        if not os.path.exists(script_path):
+            messagebox.showerror("Error", f"Script not found: {script_path}")
+            return
+
+        try:
+            # On Windows, open a new cmd window and run the script
+            subprocess.Popen(
+                f'start cmd /k "{sys.executable}" "{script_path}"',
+                shell=True,
+                cwd=project_root,
+            )
+            self.add_log("Opened GIF CLI in new terminal window")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open CLI: {str(e)}")
 
     def load_gif(self, gif_path):
         """Load and animate a GIF in the preview area."""
