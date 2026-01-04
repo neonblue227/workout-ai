@@ -7,6 +7,7 @@ keypoint overlay and GIF generation.
 
 # Standard Library
 import os
+import subprocess
 import sys
 import threading
 import time
@@ -1017,13 +1018,7 @@ class MoveUpApp:
         self.log_text.configure(state="disabled")
 
     def generate_gif(self):
-        """Generate GIF from the last recorded keypoints."""
-        if not UTILS_AVAILABLE:
-            messagebox.showerror(
-                "Error", "Utils module not available for GIF generation"
-            )
-            return
-
+        """Generate GIF by calling src/generate_gif.py script."""
         if not self.last_keypoint_path or not os.path.exists(self.last_keypoint_path):
             # Try to find the most recent keypoint file
             keypoint_dir = os.path.join(self.save_dir_var.get(), "keypoint")
@@ -1047,17 +1042,39 @@ class MoveUpApp:
             f"Generating GIF from: {os.path.basename(self.last_keypoint_path)}"
         )
 
-        # Run in thread to avoid blocking UI
+        # Run generate_gif.py script in a thread to avoid blocking UI
         def generate_thread():
             try:
-                gif_path = generate_gif(
-                    json_path=self.last_keypoint_path,
-                    panel_size=(160, 120),
-                )
-                self.log_queue.put(f"GIF saved: {gif_path}")
+                # Path to generate_gif.py script
+                script_path = os.path.join(os.path.dirname(__file__), "generate_gif.py")
 
-                # Load and display GIF
-                self.load_gif(gif_path)
+                # Calculate expected GIF output path
+                base_dir = os.path.dirname(os.path.dirname(self.last_keypoint_path))
+                gif_dir = os.path.join(base_dir, "gif")
+                filename = os.path.splitext(os.path.basename(self.last_keypoint_path))[
+                    0
+                ]
+                expected_gif_path = os.path.join(gif_dir, f"{filename}.gif")
+
+                # Run the script with the keypoint path as argument
+                result = subprocess.run(
+                    [sys.executable, script_path, self.last_keypoint_path],
+                    capture_output=True,
+                    text=True,
+                    cwd=project_root,
+                )
+
+                if result.returncode == 0:
+                    self.log_queue.put(f"GIF saved: {expected_gif_path}")
+
+                    # Load and display GIF if it exists
+                    if os.path.exists(expected_gif_path):
+                        self.load_gif(expected_gif_path)
+                else:
+                    error_msg = (
+                        result.stderr.strip() if result.stderr else "Unknown error"
+                    )
+                    self.log_queue.put(f"GIF generation failed: {error_msg}")
 
             except Exception as e:
                 self.log_queue.put(f"GIF generation error: {str(e)}")
