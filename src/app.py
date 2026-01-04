@@ -286,8 +286,6 @@ class CameraThread(threading.Thread):
             if not ret:
                 continue
 
-            frame_start = time.time()
-
             # Get MediaPipe results
             results = get_mediapipe_landmarks(frame, self.holistic)
 
