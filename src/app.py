@@ -1102,6 +1102,9 @@ class MoveUpApp:
     def animate_gif(self):
         """Animate the GIF display."""
         if self.gif_frames:
+            # Ensure index is within bounds (handles race condition if gif_frames is reloaded)
+            if self.gif_index >= len(self.gif_frames):
+                self.gif_index = 0
             self.gif_label.configure(image=self.gif_frames[self.gif_index], text="")
             self.gif_label.image = self.gif_frames[self.gif_index]
             self.gif_index = (self.gif_index + 1) % len(self.gif_frames)
