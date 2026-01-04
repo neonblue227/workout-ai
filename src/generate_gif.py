@@ -32,11 +32,13 @@ def main():
         os.path.join(os.path.dirname(__file__), "..", "data", "keypoint")
     )
 
-    # Get input file
+    # Get list of files to process
+    files_to_process = []
     if len(sys.argv) > 1:
         json_path = sys.argv[1]
         if not os.path.isabs(json_path):
             json_path = os.path.abspath(json_path)
+        files_to_process = [json_path]
     else:
         # List available JSON files
         json_files = []
@@ -55,22 +57,39 @@ def main():
 
         # Check if user entered a number
         if json_path_input.isdigit():
-            idx = int(json_path) - 1
+            idx = int(json_path_input) - 1
             if 0 <= idx < len(json_files):
-                json_path = os.path.join(keypoint_folder, json_files[idx])
+                files_to_process = [os.path.join(keypoint_folder, json_files[idx])]
+            elif idx == len(json_files):
+                files_to_process = [
+                    os.path.join(keypoint_folder, f) for f in json_files
+                ]
             else:
                 print("Invalid selection.")
                 return
-        elif not os.path.isabs(json_path):
-            # Try relative to keypoint folder first
-            if os.path.exists(os.path.join(keypoint_folder, json_path)):
-                json_path = os.path.join(keypoint_folder, json_path)
-            else:
-                json_path = os.path.abspath(json_path)
+        else:
+            # Handle manual path entry
+            if not json_path_input:
+                print("No input provided.")
+                return
 
-    # Validate input
-    if not os.path.exists(json_path):
-        print(f"Error: File not found: {json_path}")
+            if os.path.isabs(json_path_input):
+                json_path = json_path_input
+            elif os.path.exists(os.path.join(keypoint_folder, json_path_input)):
+                json_path = os.path.join(keypoint_folder, json_path_input)
+            else:
+                json_path = os.path.abspath(json_path_input)
+            files_to_process = [json_path]
+
+    # Validate all files exist
+    valid_files = []
+    for f in files_to_process:
+        if os.path.exists(f):
+            valid_files.append(f)
+        else:
+            print(f"Error: File not found: {f}")
+
+    if not valid_files:
         return
 
     # Get optional parameters
@@ -87,18 +106,22 @@ def main():
         except ValueError:
             print(f"Warning: Invalid FPS value '{sys.argv[3]}', using default")
 
-    # Generate GIF
-    print()
-    output = generate_gif(
-        json_path=json_path,
-        output_path=output_path,
-        fps=fps,
-        panel_size=(320, 240),
-    )
-    print()
-    print("=" * 60)
-    print("  GIF generated successfully!")
-    print(f"  Output: {output}")
+    # Process each file
+    for json_path in valid_files:
+        print()
+        print("-" * 40)
+        print(f"Processing: {os.path.basename(json_path)}")
+
+        output = generate_gif(
+            json_path=json_path,
+            output_path=output_path,
+            fps=fps,
+            panel_size=(320, 240),
+        )
+        print(f"GIF generated: {output}")
+
+    print("\n" + "=" * 60)
+    print(f"  Processing complete! Total files: {len(valid_files)}")
     print("=" * 60)
 
 
