@@ -17,6 +17,7 @@ from tkinter import (
     Entry,
     Frame,
     Label,
+    PanedWindow,
     StringVar,
     Text,
     Tk,
@@ -540,20 +541,25 @@ class MoveUpApp:
         )
         status_label.pack(side="right")
 
-        # Content area with two columns
-        content_frame = Frame(main_frame, bg=Theme.BG_DARK)
-        content_frame.pack(fill="both", expand=True)
+        # Content area with resizable two columns using PanedWindow
+        self.paned_window = PanedWindow(
+            main_frame,
+            orient="horizontal",
+            bg=Theme.BORDER,
+            sashwidth=6,
+            sashrelief="raised",
+        )
+        self.paned_window.pack(fill="both", expand=True)
 
-        # Left column (60% width)
-        left_column = Frame(content_frame, bg=Theme.BG_DARK)
-        left_column.pack(side="left", fill="both", expand=True, padx=(0, 10))
+        # Left column (camera and controls)
+        left_column = Frame(self.paned_window, bg=Theme.BG_DARK)
+        self.paned_window.add(left_column, minsize=400, stretch="always")
 
         self.build_left_column(left_column)
 
-        # Right column (40% width)
-        right_column = Frame(content_frame, bg=Theme.BG_MEDIUM, width=380)
-        right_column.pack(side="right", fill="both", padx=(10, 0))
-        right_column.pack_propagate(False)
+        # Right column (data management)
+        right_column = Frame(self.paned_window, bg=Theme.BG_MEDIUM)
+        self.paned_window.add(right_column, minsize=300, stretch="always")
 
         self.build_right_column(right_column)
 
