@@ -13,7 +13,11 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from utils.gif_generator import generate_gif  # noqa: E402
+try:
+    from utils.gif_generator import generate_gif
+except ImportError:
+    print("Error: utils.gif_generator not found.")
+    sys.exit(1)
 
 
 def main():
@@ -35,18 +39,22 @@ def main():
             json_path = os.path.abspath(json_path)
     else:
         # List available JSON files
+        json_files = []
         if os.path.exists(keypoint_folder):
-            json_files = [f for f in os.listdir(keypoint_folder) if f.endswith(".json")]
+            json_files = sorted(
+                [f for f in os.listdir(keypoint_folder) if f.endswith(".json")]
+            )
             if json_files:
                 print(f"\nAvailable keypoint files in {keypoint_folder}:")
                 for i, f in enumerate(json_files, 1):
                     print(f"  {i}. {f}")
+                print(f"  {len(json_files) + 1}. ALL FILES")
                 print()
 
-        json_path = input("Enter JSON file path (or number from list): ").strip()
+        json_path_input = input("Enter JSON file path (or number from list): ").strip()
 
         # Check if user entered a number
-        if json_path.isdigit():
+        if json_path_input.isdigit():
             idx = int(json_path) - 1
             if 0 <= idx < len(json_files):
                 json_path = os.path.join(keypoint_folder, json_files[idx])
