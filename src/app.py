@@ -320,9 +320,13 @@ class CameraThread(threading.Thread):
                         f"Frame {frame_count}: {', '.join(detected) if detected else 'No detection'}"
                     )
 
-                # Write frame to video
-                if self.record_data.get("video_writer"):
-                    self.record_data["video_writer"].write(display_frame)
+                # Write frame to video (with safety check for race condition)
+                video_writer = self.record_data.get("video_writer")
+                if video_writer and video_writer.isOpened():
+                    try:
+                        video_writer.write(display_frame)
+                    except cv2.error:
+                        pass  # Video writer was released during write
 
                 self.record_data["frame_count"] = frame_count
                 self.record_data["elapsed"] = elapsed
