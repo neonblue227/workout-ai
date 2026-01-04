@@ -336,13 +336,7 @@ class CameraThread(threading.Thread):
                 fps_frames = 0
                 fps_start = time.time()
 
-            # Resize for display
-            display_h = 360
-            scale = display_h / display_frame.shape[0]
-            display_w = int(display_frame.shape[1] * scale)
-            display_frame = cv2.resize(display_frame, (display_w, display_h))
-
-            # Convert to RGB for Tkinter
+            # Convert to RGB for Tkinter (send original size, scaling happens in UI)
             rgb_frame = cv2.cvtColor(display_frame, cv2.COLOR_BGR2RGB)
 
             # Put frame in queue (drop old frames if queue is full)
@@ -965,12 +959,32 @@ class MoveUpApp:
         self.root.after(100, self.update_recording_progress)
 
     def update_camera_display(self):
-        """Update camera display from queue."""
+        """Update camera display from queue, scaling to fit the label."""
         try:
             frame, fps = self.frame_queue.get_nowait()
 
-            # Convert to PhotoImage
-            pil_image = Image.fromarray(frame)
+            # Get the label's current size
+            label_width = self.camera_label.winfo_width()
+            label_height = self.camera_label.winfo_height()
+
+            # Only resize if we have valid dimensions
+            if label_width > 1 and label_height > 1:
+                # Convert to PIL Image
+                pil_image = Image.fromarray(frame)
+
+                # Calculate scale to fit while maintaining aspect ratio
+                img_width, img_height = pil_image.size
+                scale = min(label_width / img_width, label_height / img_height)
+                new_width = int(img_width * scale)
+                new_height = int(img_height * scale)
+
+                # Resize the image to fit the label
+                pil_image = pil_image.resize(
+                    (new_width, new_height), Image.Resampling.LANCZOS
+                )
+            else:
+                pil_image = Image.fromarray(frame)
+
             photo = ImageTk.PhotoImage(pil_image)
 
             self.camera_label.configure(image=photo, text="")
