@@ -501,7 +501,11 @@ class MoveUpApp:
     def setup_styles(self):
         """Configure ttk styles for Windows 10 look."""
         style = ttk.Style()
-        style.theme_use("vista")  # Use vista theme for Windows native look
+        # Pick a theme that exists on the current platform.
+        # vista = Windows native, aqua = macOS native, clam = portable fallback.
+        preferred = {"win32": "vista", "darwin": "aqua"}.get(sys.platform, "clam")
+        available = style.theme_names()
+        style.theme_use(preferred if preferred in available else "clam")
 
         # Configure combobox to match light theme
         style.configure(

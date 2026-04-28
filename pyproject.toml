@@ -1,0 +1,20 @@
+[project]
+name = "moveup-ai"
+version = "0.1.0"
+description = "Real-time posture detection for stretching exercises using MediaPipe and OpenCV."
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+    "mediapipe==0.10.21",
+    "opencv-python>=4.11.0.86",
+    "numpy>=1.26.4,<2",
+    "pillow>=10.0",
+    "tensorflow>=2.16.1,<2.17",
+    "scikit-learn>=1.5",
+    "matplotlib>=3.8",
+    "jupyter>=1.1.1",
+    "ipykernel>=6.29",
+]
+
+[tool.uv]
+package = false
