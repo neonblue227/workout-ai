@@ -6,9 +6,9 @@ Runs: video frame -> MediaPipe Holistic -> extract_all_keypoints
 
 Does NOT touch Tkinter, the webcam, or the recording loop.
 """
+
 import os
 import sys
-import json
 
 import cv2
 import mediapipe as mp
@@ -63,8 +63,8 @@ print("[4/5] Computing right-elbow angle (shoulder-elbow-wrist)")
 # MediaPipe Pose indices: 12=R_shoulder, 14=R_elbow, 16=R_wrist
 p = kp["pose"]
 shoulder = (p["12"]["x"], p["12"]["y"])
-elbow    = (p["14"]["x"], p["14"]["y"])
-wrist    = (p["16"]["x"], p["16"]["y"])
+elbow = (p["14"]["x"], p["14"]["y"])
+wrist = (p["16"]["x"], p["16"]["y"])
 angle = angle_between_points(shoulder, elbow, wrist)
 print(f"      right-elbow angle = {angle:.1f} deg")
 assert 0 < angle < 180, f"angle out of range: {angle}"
