@@ -77,6 +77,16 @@ Pipeline พิสูจน์ระบบ end-to-end บน dataset สาธ�
 
 **Baseline ที่ได้**: PyTorch LSTM (h64-32) บน Ex1+Ex5 stratified 64/16/20 split, seed=42, 76 epochs (early stop) — TEST mae=0.029, mse=0.002, **Spearman ρ=0.818** (above Kaia 2021 clinical benchmark of ≥0.80 on healthy-subject UI-PRMD; not transferable to rehab patients). Run dir: `model/runs/2026-05-05_both_seq50_jall_h64-32_s42/`
 
+**Ablation results** (`model/runs/`):
+| Config | Patience | Joints | Frames | Test MAE | **Test ρ** | Δ ρ |
+| --- | --- | --- | --- | --- | --- | --- |
+| Baseline | 10 | 39 | 50 | 0.029 | **0.818** | — |
+| seq=25 (all joints) | 10 | 39 | 25 | 0.037 | **0.655** | −16.3 pp |
+| Random 20/39 | 50 | 20 | 50 | 0.031 | **0.740** | −7.8 pp |
+| Top-variance 10/39 | 50 | 10 | 50 | 0.032 | **0.766** | −5.2 pp |
+
+> 💡 **Findings**: (1) temporal context dominates — halving sequence length costs ~16pp; halving markers costs ~8pp. (2) top-variance 10 markers BEATS random 20 markers (+2.6pp) — quality > quantity. (3) joint-subset configs hit a "predict-mean" local minimum for ~50 epochs before learning starts; default `--patience 10` kills them prematurely → use `--patience 50` for joint-subset ablations.
+
 > ⚠️ UI-PRMD เป็น **skeleton-only** (ไม่มี RGB video) — feature evaluation ทำได้เฉพาะ temporal/joint-subset ablation, ไม่ใช่ named-angle ablation production pipeline ยังเป็น RTMPose ตามแผน
 
 #### โครงสร้างข้อมูล
@@ -224,6 +234,6 @@ uv run python model/uiprmd_pickle_dataset.py
 
 **Move-UP — สู้เพื่อ NSC 2026 🇹🇭**
 
-*Document version: aligned with Master Plan v1.0 (2 พ.ค. 2026) — last update 5 พ.ค. 2026 (PoC training driver + baseline ρ=0.818)*
+*Document version: aligned with Master Plan v1.0 (2 พ.ค. 2026) — last update 5 พ.ค. 2026 (PoC training driver + ablation table; baseline ρ=0.818)*
 
 </div>
