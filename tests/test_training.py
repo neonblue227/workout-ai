@@ -25,3 +25,8 @@ def test_make_device_returns_torch_device():
     d = make_device()
     assert isinstance(d, torch.device)
     assert d.type in {"mps", "cpu", "cuda"}
+
+
+def test_set_seed_strict_enables_deterministic_algorithms():
+    set_seed(0, strict=True)
+    assert torch.are_deterministic_algorithms_enabled()

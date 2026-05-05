@@ -11,10 +11,20 @@ import torch
 
 
 def set_seed(seed: int, strict: bool = False) -> None:
+    """Seed RNGs for reproducibility across random / numpy / torch / MPS / CUDA.
+
+    `strict=True` enables a best-effort deterministic mode (sets
+    `torch.use_deterministic_algorithms(True, warn_only=True)` and CUBLAS env).
+    Some ops on MPS lack deterministic kernels and will WARN, not raise — so
+    bit-identical results aren't guaranteed even in strict mode. Strict mode
+    also persists for the lifetime of the process; calling `set_seed(...)`
+    without strict afterward does not undo it.
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.backends.mps.is_available():
+        # explicit for clarity; torch.manual_seed already seeds MPS on torch >= 2.0
         torch.mps.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
