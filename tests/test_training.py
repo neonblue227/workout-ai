@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import torch
+from torch.utils.data import DataLoader, TensorDataset
 
 from model.training import set_seed, make_device
 
@@ -60,3 +61,54 @@ def test_compute_metrics_known_values():
     assert m["mse"] == 0.25
     import math
     assert math.isnan(m["spearman"])  # constant y_pred -> Spearman undefined
+
+
+def _toy_loader(n=64, seq=10, feat=8, batch=16, seed=0):
+    g = torch.Generator().manual_seed(seed)
+    X = torch.rand(n, seq, feat, generator=g)
+    y = torch.rand(n, generator=g)
+    ds = TensorDataset(X, y)
+    return DataLoader(ds, batch_size=batch, shuffle=False)
+
+
+class _TinyRegressor(torch.nn.Module):
+    def __init__(self, feat=8):
+        super().__init__()
+        self.lin = torch.nn.Linear(feat, 1)
+
+    def forward(self, x):
+        return torch.sigmoid(self.lin(x.mean(dim=1)))
+
+
+def test_train_one_epoch_returns_float_loss():
+    from model.training import train_one_epoch
+    model = _TinyRegressor()
+    loader = _toy_loader()
+    opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+    loss_fn = torch.nn.MSELoss()
+    loss = train_one_epoch(model, loader, opt, loss_fn, torch.device("cpu"))
+    assert isinstance(loss, float)
+    assert loss >= 0
+
+
+def test_train_one_epoch_decreases_loss_after_steps():
+    from model.training import train_one_epoch
+    torch.manual_seed(0)
+    model = _TinyRegressor()
+    loader = _toy_loader()
+    opt = torch.optim.Adam(model.parameters(), lr=1e-2)
+    loss_fn = torch.nn.MSELoss()
+    losses = [
+        train_one_epoch(model, loader, opt, loss_fn, torch.device("cpu"))
+        for _ in range(20)
+    ]
+    assert losses[-1] < losses[0], f"loss did not decrease: {losses[0]} -> {losses[-1]}"
+
+
+def test_evaluate_returns_metrics_dict():
+    from model.training import evaluate
+    model = _TinyRegressor()
+    loader = _toy_loader(n=32)
+    m = evaluate(model, loader, torch.device("cpu"))
+    assert {"mae", "mse", "spearman"} <= set(m.keys())
+    assert isinstance(m["mae"], float)

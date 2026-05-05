@@ -8,7 +8,9 @@ import random
 
 import numpy as np
 import torch
+import torch.nn as nn
 from scipy.stats import spearmanr
+from torch.utils.data import DataLoader
 
 
 def set_seed(seed: int, strict: bool = False) -> None:
@@ -54,3 +56,42 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
         # round to 10 d.p. to absorb float32 rank-tie rounding (e.g. 0.9999…999 → 1.0)
         spearman = round(float(rho), 10)
     return {"mae": mae, "mse": mse, "spearman": spearman}
+
+
+def train_one_epoch(
+    model: nn.Module,
+    loader: DataLoader,
+    optimizer: torch.optim.Optimizer,
+    loss_fn: nn.Module,
+    device: torch.device,
+) -> float:
+    model.train()
+    total_loss = 0.0
+    n_samples = 0
+    for x, y in loader:
+        x = x.to(device)
+        y = y.to(device).view(-1, 1).float()
+        optimizer.zero_grad()
+        pred = model(x)
+        loss = loss_fn(pred, y)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item() * x.size(0)
+        n_samples += x.size(0)
+    return total_loss / max(n_samples, 1)
+
+
+def evaluate(
+    model: nn.Module, loader: DataLoader, device: torch.device
+) -> dict:
+    model.eval()
+    preds, trues = [], []
+    with torch.no_grad():
+        for x, y in loader:
+            x = x.to(device)
+            pred = model(x).cpu().numpy().flatten()
+            preds.append(pred)
+            trues.append(y.cpu().numpy().flatten())
+    y_pred = np.concatenate(preds)
+    y_true = np.concatenate(trues)
+    return compute_metrics(y_true, y_pred)
