@@ -47,7 +47,7 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     y_pred = np.asarray(y_pred).flatten()
     mae = float(np.abs(y_true - y_pred).mean())
     mse = float(((y_true - y_pred) ** 2).mean())
-    if y_true.size < 2 or np.std(y_pred) == 0:
+    if y_true.size < 2 or np.std(y_pred) == 0 or np.std(y_true) == 0:
         spearman = float("nan")
     else:
         rho, _ = spearmanr(y_true, y_pred)

@@ -58,3 +58,5 @@ def test_compute_metrics_known_values():
     m = compute_metrics(y_true, y_pred)
     assert m["mae"] == 0.5
     assert m["mse"] == 0.25
+    import math
+    assert math.isnan(m["spearman"])  # constant y_pred -> Spearman undefined
