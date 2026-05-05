@@ -27,10 +27,14 @@ from model.training import (  # type: ignore[import-not-found]
 )
 from model.uiprmd_pickle_dataset import (  # type: ignore[import-not-found]
     EXERCISES,
-    load_combined,
-    load_exercise,
     train_val_test_split,
 )
+
+# Map CLI exercise short-names to keys in model.uiprmd_pickle_dataset.EXERCISES
+CLI_TO_EXERCISE = {
+    "squat": "deep_squat",
+    "sit_to_stand": "sit_to_stand",
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -83,8 +87,8 @@ def load_data(args: argparse.Namespace) -> tuple[np.ndarray, np.ndarray, np.ndar
         with open(DEFAULT_PICKLE, "rb") as f:
             d = pickle.load(f)
         Xs, ys, ids = [], [], []
-        for ex_id, name in enumerate(EXERCISES):
-            X, y = d[EXERCISES[name]]
+        for ex_id, ex_name in enumerate(CLI_TO_EXERCISE.values()):
+            X, y = d[EXERCISES[ex_name]]
             X = X.astype(np.float32)
             y = y.flatten().astype(np.float32)
             Xs.append(X)
@@ -97,7 +101,7 @@ def load_data(args: argparse.Namespace) -> tuple[np.ndarray, np.ndarray, np.ndar
         from model.uiprmd_pickle_dataset import DEFAULT_PICKLE  # type: ignore[import-not-found]
         with open(DEFAULT_PICKLE, "rb") as f:
             d = pickle.load(f)
-        X, y = d[EXERCISES[args.exercises]]
+        X, y = d[EXERCISES[CLI_TO_EXERCISE[args.exercises]]]
         X = X.astype(np.float32)
         y = y.flatten().astype(np.float32)
         ids = np.zeros(len(y), dtype=np.int32)
