@@ -8,6 +8,7 @@ import random
 
 import numpy as np
 import torch
+from scipy.stats import spearmanr
 
 
 def set_seed(seed: int, strict: bool = False) -> None:
@@ -39,3 +40,17 @@ def make_device() -> torch.device:
     if torch.backends.mps.is_available():
         return torch.device("mps")
     return torch.device("cpu")
+
+
+def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
+    y_true = np.asarray(y_true).flatten()
+    y_pred = np.asarray(y_pred).flatten()
+    mae = float(np.abs(y_true - y_pred).mean())
+    mse = float(((y_true - y_pred) ** 2).mean())
+    if y_true.size < 2 or np.std(y_pred) == 0:
+        spearman = float("nan")
+    else:
+        rho, _ = spearmanr(y_true, y_pred)
+        # round to 10 d.p. to absorb float32 rank-tie rounding (e.g. 0.9999…999 → 1.0)
+        spearman = round(float(rho), 10)
+    return {"mae": mae, "mse": mse, "spearman": spearman}

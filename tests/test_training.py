@@ -30,3 +30,31 @@ def test_make_device_returns_torch_device():
 def test_set_seed_strict_enables_deterministic_algorithms():
     set_seed(0, strict=True)
     assert torch.are_deterministic_algorithms_enabled()
+
+
+def test_compute_metrics_perfect_match():
+    from model.training import compute_metrics
+    y_true = np.array([0.5, 0.6, 0.7, 0.8, 0.9], dtype=np.float32)
+    y_pred = y_true.copy()
+    m = compute_metrics(y_true, y_pred)
+    assert m["mae"] == 0.0
+    assert m["mse"] == 0.0
+    assert m["spearman"] == 1.0
+
+
+def test_compute_metrics_inverse_predictions_negative_spearman():
+    from model.training import compute_metrics
+    y_true = np.array([0.5, 0.6, 0.7, 0.8, 0.9], dtype=np.float32)
+    y_pred = y_true[::-1].copy()
+    m = compute_metrics(y_true, y_pred)
+    assert m["mae"] > 0
+    assert m["spearman"] == -1.0
+
+
+def test_compute_metrics_known_values():
+    from model.training import compute_metrics
+    y_true = np.array([0.0, 1.0], dtype=np.float32)
+    y_pred = np.array([0.5, 0.5], dtype=np.float32)
+    m = compute_metrics(y_true, y_pred)
+    assert m["mae"] == 0.5
+    assert m["mse"] == 0.25
