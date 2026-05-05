@@ -1,10 +1,20 @@
 [project]
 name = "workout-ai"
 version = "0.1.0"
-description = "Add your description here"
+description = "Move-UP — gamified rehab/exercise companion (NSC 2026)"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "mediapipe==0.10.14",
     "opencv-python>=4.13.0.92",
+    "kaggle>=1.6.0",
+    "numpy>=1.26",
+    "torch>=2.4.0",
+    "scipy>=1.11",
 ]
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
