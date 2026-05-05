@@ -156,7 +156,7 @@ def test_fit_early_stopping_triggers_when_no_improvement():
         epochs=20, lr=1e-2, patience=2,
         device=torch.device("cpu"),
     )
-    assert len(result["history"]) <= 5, f"early stop did not trigger: {len(result['history'])} epochs"
+    assert len(result["history"]) <= 3, f"early stop did not trigger at expected epoch: {len(result['history'])} epochs"
 
 
 def test_fit_restores_best_weights():

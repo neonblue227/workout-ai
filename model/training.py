@@ -78,6 +78,7 @@ def train_one_epoch(
         optimizer.zero_grad()
         pred = model(x)
         loss = loss_fn(pred, y)
+        # skip backward/step if all params are frozen (e.g. early-stopping test with a fully-frozen model)
         if any(p.requires_grad for p in model.parameters()):
             loss.backward()
             optimizer.step()
@@ -122,7 +123,6 @@ def fit(
     history: list[dict] = []
     best_state: dict | None = None
     best_val_mae = float("inf")
-    best_epoch = -1
     best_metrics: dict = {}
     no_improve = 0
 
@@ -141,7 +141,6 @@ def fit(
         improved = val_metrics["mae"] < best_val_mae - 1e-6
         if improved:
             best_val_mae = val_metrics["mae"]
-            best_epoch = epoch
             best_state = copy.deepcopy(model.state_dict())
             best_metrics = {**val_metrics, "epoch": epoch}
             no_improve = 0
