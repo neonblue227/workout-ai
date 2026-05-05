@@ -220,3 +220,6 @@ __marimo__/
 video/
 keypoint/
 gif/
+
+# Move-UP datasets — binary, redownloadable via scripts/fetch_uiprmd.py
+model/data/
