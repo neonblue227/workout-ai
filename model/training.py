@@ -71,6 +71,9 @@ def train_one_epoch(
     for x, y in loader:
         x = x.to(device)
         y = y.to(device).view(-1, 1).float()
+        assert y.shape[0] == x.shape[0], (
+            f"y batch size mismatch: y={y.shape[0]} vs x={x.shape[0]}"
+        )
         optimizer.zero_grad()
         pred = model(x)
         loss = loss_fn(pred, y)
@@ -92,6 +95,8 @@ def evaluate(
             pred = model(x).cpu().numpy().flatten()
             preds.append(pred)
             trues.append(y.cpu().numpy().flatten())
+    if not preds:
+        raise ValueError("evaluate called on an empty DataLoader")
     y_pred = np.concatenate(preds)
     y_true = np.concatenate(trues)
     return compute_metrics(y_true, y_pred)

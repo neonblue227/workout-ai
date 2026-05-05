@@ -112,3 +112,12 @@ def test_evaluate_returns_metrics_dict():
     m = evaluate(model, loader, torch.device("cpu"))
     assert {"mae", "mse", "spearman"} <= set(m.keys())
     assert isinstance(m["mae"], float)
+
+
+def test_evaluate_raises_on_empty_loader():
+    import pytest
+    from model.training import evaluate
+    model = _TinyRegressor()
+    empty_loader = DataLoader(TensorDataset(torch.empty(0, 10, 8), torch.empty(0)), batch_size=4)
+    with pytest.raises(ValueError, match="empty DataLoader"):
+        evaluate(model, empty_loader, torch.device("cpu"))
