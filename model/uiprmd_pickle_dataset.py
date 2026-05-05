@@ -72,6 +72,7 @@ def train_test_split(
     n = len(X)
     if stratify is None:
         idx = rng.permutation(n)
+        # round() avoids 1-sample undercount when class sizes aren't exact multiples of test_frac
         cut = round(n * test_frac)
         test_idx, train_idx = idx[:cut], idx[cut:]
     else:

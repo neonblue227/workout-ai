@@ -60,6 +60,20 @@
 #### Utility Modules (14 modules)
 `angle.py`, `draw_pose.py`, `draw_face.py`, `draw_hand.py`, `draw_angle.py`, `draw_info.py`, `keypoint_extractor.py`, `keypoint_recorder.py`, `gif_generator.py`, `fps_calibration.py`, `visibility_color.py`
 
+#### PoC Baseline Scaffolding (UI-PRMD via cpm121/uiprmd-full10ex) ✅
+Pipeline พิสูจน์ระบบ end-to-end บน dataset สาธารณะ ก่อนย้ายไปสาย RTMPose+ST-GCN ใน P3 — **ดาวน์โหลด + loader ใช้ได้แล้ว**
+| ฟีเจอร์ | คำอธิบาย | ไฟล์หลัก |
+| ------- | -------- | -------- |
+| 📥 Fetch UI-PRMD (Vicon pickle) | ดาวน์โหลด `uiprmd_all_exercises.pkl` จาก Kaggle mirror `cpm121/uiprmd-full10ex` แล้วพิมพ์สรุป (Ex1 squat 900 clips, Ex5 sit-to-stand 1008 clips) | `scripts/fetch_uiprmd.py` |
+| 🧱 Pickle dataset loader | โหลด pickle, แบนข้อมูล `(50, 39, 3) → (50, 117)`, รองรับ stratified 2-way (`train_test_split`) และ 3-way (`train_val_test_split`, 64/16/20) split | `model/uiprmd_pickle_dataset.py` |
+| 🧪 Dataset split tests | 5 tests ครอบคลุม: ขนาด, alignment, no-overlap, determinism, stratification ratios | `tests/test_uiprmd_split.py` |
+| 📦 Dependencies | เพิ่ม `kaggle`, `numpy` ใน `pyproject.toml` (description ก็แก้แล้ว) | `pyproject.toml` |
+| 🗄️ Deprecated (kept for ref) | Kinect-25 → MediaPipe adapter — เขียนไว้สำหรับ raw-txt mirror, mirror จริงใช้ Vicon pickle จึงไม่ได้ใช้ | `model/kinect_to_features.py` |
+
+**Dataset สรุป**: 1,908 clips (squat 900 + sit-to-stand 1008), shape `(N, 50_frames, 117_features)`, scores ต่อเนื่อง 0.53-0.97 (Vicon มากกว่าจะเป็น Kinect — paper §UI-PRMD)
+
+> ⚠️ UI-PRMD เป็น **skeleton-only** (ไม่มี RGB video) — feature evaluation ทำได้เฉพาะ temporal/joint-subset ablation, ไม่ใช่ named-angle ablation production pipeline ยังเป็น RTMPose ตามแผน
+
 #### โครงสร้างข้อมูล
 ```
 data/
@@ -116,7 +130,7 @@ data/
 5. ⬜ **Hardware verification** — RTMPose-l ≥30 FPS, Qwen3-8B บน MLX, thermal test
 
 ### Nice to have
-- ⬜ Download datasets: KIMORE, UI-PRMD, REHAB24-6
+- ✅ UI-PRMD ดาวน์โหลดเรียบร้อย (1,908 clips, Ex1+Ex5); KIMORE, REHAB24-6 ยังไม่ได้
 - ⬜ อ่าน Karlov 2024 (arXiv 2403.02772)
 - ⬜ Clone reference repos (`yakupzengin/fitness-trainer-pose-estimation`, `NgoQuocBao1010/Exercise-Correction`)
 - ⬜ Thai PDPA consent flow draft
@@ -184,6 +198,19 @@ python src/generate_gif.py
 python model/extract_pipeline.py
 ```
 
+### PoC Baseline (UI-PRMD via Vicon pickle)
+```bash
+# 1. ตั้งค่า Kaggle API token ที่ ~/.kaggle/kaggle.json (chmod 600)
+# 2. ดาวน์โหลด pickle (~107 MB) แล้วพิมพ์สรุป
+uv run python scripts/fetch_uiprmd.py
+
+# 3. ทดสอบ loader + stratified train/test split
+uv run python model/uiprmd_pickle_dataset.py
+
+# จะได้ X.shape = (1908, 50, 117), y.shape = (1908,) พร้อมป้อนให้ LSTM
+# (เปลี่ยน scoring_model.create_scoring_model(num_features=117, sequence_length=50))
+```
+
 > ⚠️ Server stack (FastAPI + aiortc + RTMPose) จะเริ่ม setup ใน **Week 4 (26 พ.ค.)**
 
 ---
@@ -192,6 +219,6 @@ python model/extract_pipeline.py
 
 **Move-UP — สู้เพื่อ NSC 2026 🇹🇭**
 
-*Document version: aligned with Master Plan v1.0 (2 พ.ค. 2026)*
+*Document version: aligned with Master Plan v1.0 (2 พ.ค. 2026) — last update 5 พ.ค. 2026 (PoC scaffolding)*
 
 </div>
