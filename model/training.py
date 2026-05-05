@@ -3,6 +3,7 @@
 Model-agnostic — `fit` works on any nn.Module with forward(x) -> (B, 1).
 """
 
+import copy
 import os
 import random
 
@@ -77,8 +78,9 @@ def train_one_epoch(
         optimizer.zero_grad()
         pred = model(x)
         loss = loss_fn(pred, y)
-        loss.backward()
-        optimizer.step()
+        if any(p.requires_grad for p in model.parameters()):
+            loss.backward()
+            optimizer.step()
         total_loss += loss.item() * x.size(0)
         n_samples += x.size(0)
     return total_loss / max(n_samples, 1)
@@ -100,3 +102,65 @@ def evaluate(
     y_pred = np.concatenate(preds)
     y_true = np.concatenate(trues)
     return compute_metrics(y_true, y_pred)
+
+
+def fit(
+    model: nn.Module,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
+    *,
+    epochs: int,
+    lr: float,
+    patience: int,
+    device: torch.device,
+    log_every: int = 1,
+) -> dict:
+    model.to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    loss_fn = nn.MSELoss()
+
+    history: list[dict] = []
+    best_state: dict | None = None
+    best_val_mae = float("inf")
+    best_epoch = -1
+    best_metrics: dict = {}
+    no_improve = 0
+
+    for epoch in range(1, epochs + 1):
+        train_loss = train_one_epoch(model, train_loader, optimizer, loss_fn, device)
+        val_metrics = evaluate(model, val_loader, device)
+        row = {
+            "epoch": epoch,
+            "train_loss": train_loss,
+            "val_mae": val_metrics["mae"],
+            "val_mse": val_metrics["mse"],
+            "val_spearman": val_metrics["spearman"],
+        }
+        history.append(row)
+
+        improved = val_metrics["mae"] < best_val_mae - 1e-6
+        if improved:
+            best_val_mae = val_metrics["mae"]
+            best_epoch = epoch
+            best_state = copy.deepcopy(model.state_dict())
+            best_metrics = {**val_metrics, "epoch": epoch}
+            no_improve = 0
+        else:
+            no_improve += 1
+
+        if epoch % log_every == 0:
+            star = " *" if improved else ""
+            print(
+                f"epoch {epoch:3d} | train_loss={train_loss:.4f} "
+                f"val_mae={val_metrics['mae']:.4f} val_mse={val_metrics['mse']:.4f} "
+                f"val_spearman={val_metrics['spearman']:.3f}{star}"
+            )
+
+        if no_improve >= patience:
+            print(f"Early stopping at epoch {epoch} (no improvement for {patience} epochs)")
+            break
+
+    if best_state is not None:
+        model.load_state_dict(best_state)
+
+    return {"history": history, "best_metrics": best_metrics, "best_state": best_state}

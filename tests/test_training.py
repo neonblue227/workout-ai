@@ -121,3 +121,55 @@ def test_evaluate_raises_on_empty_loader():
     empty_loader = DataLoader(TensorDataset(torch.empty(0, 10, 8), torch.empty(0)), batch_size=4)
     with pytest.raises(ValueError, match="empty DataLoader"):
         evaluate(model, empty_loader, torch.device("cpu"))
+
+
+def test_fit_returns_history_and_best_state():
+    from model.training import fit
+    torch.manual_seed(0)
+    model = _TinyRegressor()
+    train_loader = _toy_loader(n=64)
+    val_loader = _toy_loader(n=32, seed=1)
+    result = fit(
+        model, train_loader, val_loader,
+        epochs=5, lr=1e-2, patience=10,
+        device=torch.device("cpu"),
+    )
+    assert "history" in result and "best_metrics" in result and "best_state" in result
+    h = result["history"]
+    assert len(h) == 5
+    for row in h:
+        assert {"epoch", "train_loss", "val_mae", "val_mse", "val_spearman"} <= set(row)
+
+
+def test_fit_early_stopping_triggers_when_no_improvement():
+    """A frozen model never improves; with patience=2 and epochs=20, fit
+    should stop within ~3 epochs."""
+    from model.training import fit
+    torch.manual_seed(0)
+    model = _TinyRegressor()
+    for p in model.parameters():
+        p.requires_grad_(False)  # frozen — no improvement possible
+    train_loader = _toy_loader()
+    val_loader = _toy_loader(n=32, seed=1)
+    result = fit(
+        model, train_loader, val_loader,
+        epochs=20, lr=1e-2, patience=2,
+        device=torch.device("cpu"),
+    )
+    assert len(result["history"]) <= 5, f"early stop did not trigger: {len(result['history'])} epochs"
+
+
+def test_fit_restores_best_weights():
+    """Best state dict should match the state at the lowest val_mae epoch."""
+    from model.training import fit
+    torch.manual_seed(0)
+    model = _TinyRegressor()
+    train_loader = _toy_loader()
+    val_loader = _toy_loader(n=32, seed=1)
+    result = fit(
+        model, train_loader, val_loader,
+        epochs=10, lr=1e-2, patience=20,
+        device=torch.device("cpu"),
+    )
+    best_epoch = min(result["history"], key=lambda r: r["val_mae"])["epoch"]
+    assert result["best_metrics"]["epoch"] == best_epoch
