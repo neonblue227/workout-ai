@@ -69,8 +69,13 @@ Pipeline พิสูจน์ระบบ end-to-end บน dataset สาธ�
 | 🧪 Dataset split tests | 5 tests ครอบคลุม: ขนาด, alignment, no-overlap, determinism, stratification ratios | `tests/test_uiprmd_split.py` |
 | 📦 Dependencies | เพิ่ม `kaggle`, `numpy` ใน `pyproject.toml` (description ก็แก้แล้ว) | `pyproject.toml` |
 | 🗄️ Deprecated (kept for ref) | Kinect-25 → MediaPipe adapter — เขียนไว้สำหรับ raw-txt mirror, mirror จริงใช้ Vicon pickle จึงไม่ได้ใช้ | `model/kinect_to_features.py` |
+| 🧠 PyTorch LSTM scorer | `nn.Module` regressor — input (B, 50, num_features), sigmoid output ∈ [0,1] | `model/lstm_torch.py` |
+| 🏃 Training driver + ablation knobs | seed/device helpers, `fit()` with early stopping, MAE/MSE/Spearman, CLI flags สำหรับ seq-len + joint-subset | `model/training.py`, `scripts/train_baseline.py` |
+| 🧪 Unit tests (13 tests) | split (5), model (4), training (13: seed, metrics, train/eval, fit) | `tests/test_*.py` |
 
 **Dataset สรุป**: 1,908 clips (squat 900 + sit-to-stand 1008), shape `(N, 50_frames, 117_features)`, scores ต่อเนื่อง 0.53-0.97 (Vicon มากกว่าจะเป็น Kinect — paper §UI-PRMD)
+
+**Baseline ที่ได้**: PyTorch LSTM (h64-32) บน Ex1+Ex5 stratified 64/16/20 split, seed=42, 76 epochs (early stop) — TEST mae=0.029, mse=0.002, **Spearman ρ=0.818** (above Kaia 2021 clinical benchmark of ≥0.80 on healthy-subject UI-PRMD; not transferable to rehab patients). Run dir: `model/runs/2026-05-05_both_seq50_jall_h64-32_s42/`
 
 > ⚠️ UI-PRMD เป็น **skeleton-only** (ไม่มี RGB video) — feature evaluation ทำได้เฉพาะ temporal/joint-subset ablation, ไม่ใช่ named-angle ablation production pipeline ยังเป็น RTMPose ตามแผน
 
@@ -219,6 +224,6 @@ uv run python model/uiprmd_pickle_dataset.py
 
 **Move-UP — สู้เพื่อ NSC 2026 🇹🇭**
 
-*Document version: aligned with Master Plan v1.0 (2 พ.ค. 2026) — last update 5 พ.ค. 2026 (PoC scaffolding)*
+*Document version: aligned with Master Plan v1.0 (2 พ.ค. 2026) — last update 5 พ.ค. 2026 (PoC training driver + baseline ρ=0.818)*
 
 </div>
