@@ -9,10 +9,12 @@ After this script, model/uiprmd_pickle_dataset.py exposes the loader.
 
 Prereqs:
     1. uv add kaggle  (already done)
-    2. ~/.kaggle/kaggle.json with chmod 600
+    2. <project>/.kaggle/kaggle.json with chmod 600
+       (gitignored — kept project-local instead of ~/.kaggle/)
 """
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -22,20 +24,28 @@ KAGGLE_SLUG = "cpm121/uiprmd-full10ex"
 DEFAULT_TARGET_DIR = Path("model/data/uiprmd")
 PICKLE_NAME = "uiprmd_all_exercises.pkl"
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+PROJECT_KAGGLE_DIR = PROJECT_ROOT / ".kaggle"
+
 
 def check_kaggle() -> None:
+    """Verify the kaggle CLI + project-local credentials are present, and
+    point the kaggle CLI at <project>/.kaggle/ via KAGGLE_CONFIG_DIR."""
     if shutil.which("kaggle") is None:
         sys.exit(
             "ERROR: kaggle CLI not found.\n"
             "  uv add kaggle    (or pip install kaggle)"
         )
-    cred = Path.home() / ".kaggle" / "kaggle.json"
+    cred = PROJECT_KAGGLE_DIR / "kaggle.json"
     if not cred.exists():
         sys.exit(
             f"ERROR: Kaggle credentials not found at {cred}\n"
             "  1. https://www.kaggle.com/settings -> API -> Create New Token\n"
-            f"  2. mv ~/Downloads/kaggle.json {cred} && chmod 600 {cred}"
+            f"  2. mkdir -p {PROJECT_KAGGLE_DIR} && mv ~/Downloads/kaggle.json {cred}\n"
+            f"  3. chmod 600 {cred}"
         )
+    # Tell the kaggle CLI to read from the project-local dir instead of ~/.kaggle/
+    os.environ["KAGGLE_CONFIG_DIR"] = str(PROJECT_KAGGLE_DIR)
 
 
 def download(target_dir: Path) -> None:

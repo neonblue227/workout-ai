@@ -223,3 +223,6 @@ gif/
 
 # Move-UP datasets — binary, redownloadable via scripts/fetch_uiprmd.py
 model/data/
+
+# Move-UP secrets — Kaggle API token (project-local, not in ~/.kaggle/)
+.kaggle/
